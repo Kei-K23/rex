@@ -104,6 +104,7 @@ class DotNode : public ASTNode
 public:
     bool match(const std::string &text, size_t &index) const override
     {
+        // Check current text index is within range
         if (index < text.length())
         {
             index++;
@@ -111,4 +112,32 @@ public:
         }
         return false;
     }
+};
+
+class StarNode : public ASTNode
+{
+public:
+    StarNode(std::unique_ptr<ASTNode> node) : node(std::move(node)) {}
+
+    bool match(const std::string &text, size_t &index) const override
+    {
+        size_t start = index;
+
+        // Match as many as possible
+        while (node->match(text, index))
+            ;
+
+        while (index >= start)
+        {
+            if (index == text.length() || node->match(text, index))
+            {
+                return true;
+            }
+            index--;
+        }
+        return false;
+    }
+
+private:
+    std::unique_ptr<ASTNode> node;
 };
