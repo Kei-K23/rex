@@ -10,6 +10,8 @@ enum class TokenType
     LITERAL,
     DOT,
     STAR,
+    LPAREN,
+    RPAREN,
     END
 };
 
@@ -46,6 +48,10 @@ public:
             return Token(TokenType::STAR, '*');
         case '.':
             return Token(TokenType::DOT, '.');
+        case '(':
+            return Token(TokenType::LPAREN, '(');
+        case ')':
+            return Token(TokenType::RPAREN, ')');
         default:
             return Token(TokenType::LITERAL, current);
         }
@@ -162,6 +168,32 @@ private:
     std::unique_ptr<ASTNode> right;
 };
 
+class GroupNode : public ASTNode
+{
+public:
+    GroupNode(std::unique_ptr<ASTNode> node) : node(std::move(node)) {}
+
+    bool match(const std::string &text, size_t &index) const override
+    {
+        size_t start = index;
+        if (node->match(text, index))
+        {
+            captured = text.substr(start, index - start);
+            return true;
+        }
+        return false;
+    }
+
+    std::string &getCaptured()
+    {
+        return captured;
+    }
+
+private:
+    std::unique_ptr<ASTNode> node;
+    mutable std::string captured;
+};
+
 /*
 Responsible for parsing the tokenized input and building an AST representing the regular expression.
 */
@@ -203,6 +235,15 @@ private:
             node = std::make_unique<DotNode>();
             advance();
             break;
+        case TokenType::LPAREN:
+            advance();
+            node = parseExpression();
+            if (currentToken.type == TokenType::RPAREN)
+            {
+                advance();
+            }
+            node = std::make_unique<GroupNode>(std::move(node));
+            break;
         default:
             break;
         }
@@ -237,8 +278,8 @@ private:
 
 int main()
 {
-    std::string pattern = "a*b.";
-    std::string text = "aaaabc";
+    std::string pattern = "(ab)*";
+    std::string text = "abab";
 
     Lexer lexer(pattern);
     Parser parser(lexer);
