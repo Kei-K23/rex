@@ -2,11 +2,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <cctype>
 
-/*
-The TokenType enumeration defines the types of tokens the lexer can generate.
-*/
 enum class TokenType
 {
     LITERAL,
@@ -15,21 +11,14 @@ enum class TokenType
     END
 };
 
-/*
-The Token struct encapsulates a token's type and value.
-*/
 struct Token
 {
-    TokenType type; // Type of token
-    char value;     // Value
+    TokenType type;
+    char value;
 
-    // (Constructor) initializes a Token with a specified type and an optional value. The default value for value is '\0', which is useful for tokens that do not need a specific character value (like END).
     Token(TokenType type, char value = '\0') : type(type), value(value) {}
 };
 
-/*
- The Lexer class reads the regular expression pattern and produces tokens corresponding to the different components of the pattern (literals, dot, asterisk, end of input). The nextToken method handles the logic of token generation based on the current character and updates the index accordingly.
-*/
 class Lexer
 {
 public:
@@ -37,37 +26,26 @@ public:
 
     Token nextToken()
     {
-        // Reach to the end of pattern string
         if (index >= pattern.length())
         {
             return Token(TokenType::END);
         }
 
-        // Get current character
         char current = pattern[index++];
-
         switch (current)
         {
         case '*':
-            return Token(TokenType::STAR);
+            return Token(TokenType::STAR, '*');
         case '.':
-            return Token(TokenType::DOT);
+            return Token(TokenType::DOT, '.');
         default:
-            // alphabetic literal token
-            if (std::isalpha(current))
-            {
-                return Token(TokenType::LITERAL);
-            }
-            else
-            {
-                throw std::invalid_argument("Invalid pattern string");
-            }
+            return Token(TokenType::LITERAL, current);
         }
     }
 
 private:
-    std::string pattern; // Pattern string
-    size_t index;        // Index for pattern string
+    std::string pattern;
+    size_t index;
 };
 
 class ASTNode
@@ -79,17 +57,14 @@ public:
 
 class LiteralNode : public ASTNode
 {
-
 public:
     LiteralNode(char value) : value(value) {}
 
     bool match(const std::string &text, size_t &index) const override
     {
-        // Check value are equal
         if (index < text.length() && text[index] == value)
         {
-            // Increment the index for text
-            index++;
+            ++index;
             return true;
         }
         return false;
@@ -104,10 +79,9 @@ class DotNode : public ASTNode
 public:
     bool match(const std::string &text, size_t &index) const override
     {
-        // Check current text index is within range
         if (index < text.length())
         {
-            index++;
+            ++index;
             return true;
         }
         return false;
@@ -127,13 +101,14 @@ public:
         while (node->match(text, index))
             ;
 
+        // Try to match the rest of the pattern by backtracking
         while (index >= start)
         {
             if (index == text.length() || node->match(text, index))
             {
                 return true;
             }
-            index--;
+            --index;
         }
         return false;
     }
@@ -145,8 +120,8 @@ private:
 class ConcatNode : public ASTNode
 {
 public:
-    ConcatNode(std::unique_ptr<ASTNode> left,
-               std::unique_ptr<ASTNode> right) : left(std::move(left)), right(std::move(right)) {}
+    ConcatNode(std::unique_ptr<ASTNode> left, std::unique_ptr<ASTNode> right)
+        : left(std::move(left)), right(std::move(right)) {}
 
     bool match(const std::string &text, size_t &index) const override
     {
@@ -181,7 +156,7 @@ public:
     }
 
 private:
-    Lexer lexer;
+    Lexer &lexer;
     Token currentToken;
 
     void advance()
@@ -192,7 +167,6 @@ private:
     std::unique_ptr<ASTNode> parsePrimary()
     {
         std::unique_ptr<ASTNode> node;
-
         switch (currentToken.type)
         {
         case TokenType::LITERAL:
@@ -212,6 +186,45 @@ private:
             node = std::make_unique<StarNode>(std::move(node));
             advance();
         }
+
         return node;
     }
 };
+
+class Matcher
+{
+public:
+    Matcher(std::unique_ptr<ASTNode> root) : root(std::move(root)) {}
+
+    bool match(const std::string &text)
+    {
+        size_t index = 0;
+        return root->match(text, index) && index == text.length();
+    }
+
+private:
+    std::unique_ptr<ASTNode> root;
+};
+
+int main()
+{
+    std::string pattern = "a.";
+    std::string text = "ax";
+
+    Lexer lexer(pattern);
+    Parser parser(lexer);
+
+    std::unique_ptr<ASTNode> root = parser.parseExpression();
+    Matcher matcher(std::move(root));
+
+    if (matcher.match(text))
+    {
+        std::cout << "Match!" << std::endl;
+    }
+    else
+    {
+        std::cout << "No match." << std::endl;
+    }
+
+    return 0;
+}
