@@ -1,8 +1,10 @@
 #include <iostream>
 #include <string>
-#include <vector>
 #include <memory>
 
+/*
+Defines different types of tokens the lexer can recognize
+*/
 enum class TokenType
 {
     LITERAL,
@@ -11,6 +13,9 @@ enum class TokenType
     END
 };
 
+/*
+Represents a token
+*/
 struct Token
 {
     TokenType type;
@@ -19,6 +24,9 @@ struct Token
     Token(TokenType type, char value = '\0') : type(type), value(value) {}
 };
 
+/*
+The lexer is responsible for scanning the input pattern string and generating tokens one by one.
+*/
 class Lexer
 {
 public:
@@ -48,6 +56,9 @@ private:
     size_t index;
 };
 
+/*
+Abstract base class for all nodes in the AST (Abstract Syntax Tree). It defines a match function that must be overridden by derived classes
+*/
 class ASTNode
 {
 public:
@@ -55,6 +66,9 @@ public:
     virtual bool match(const std::string &text, size_t &index) const = 0;
 };
 
+/*
+Represents a exact literal character in the pattern.
+*/
 class LiteralNode : public ASTNode
 {
 public:
@@ -74,6 +88,9 @@ private:
     char value;
 };
 
+/*
+Represents the . wildcard in the pattern.
+*/
 class DotNode : public ASTNode
 {
 public:
@@ -88,6 +105,9 @@ public:
     }
 };
 
+/*
+Represents the * operator in the pattern, meaning "zero or more repetitions" of the preceding element.
+*/
 class StarNode : public ASTNode
 {
 public:
@@ -117,6 +137,9 @@ private:
     std::unique_ptr<ASTNode> node;
 };
 
+/*
+Represents a sequence(concatenation) of two elements in the pattern.
+*/
 class ConcatNode : public ASTNode
 {
 public:
@@ -139,6 +162,9 @@ private:
     std::unique_ptr<ASTNode> right;
 };
 
+/*
+Responsible for parsing the tokenized input and building an AST representing the regular expression.
+*/
 class Parser
 {
 public:
@@ -191,6 +217,9 @@ private:
     }
 };
 
+/*
+Handles the matching of a string against the parsed regular expression
+*/
 class Matcher
 {
 public:
@@ -208,8 +237,8 @@ private:
 
 int main()
 {
-    std::string pattern = "a.";
-    std::string text = "ax";
+    std::string pattern = "a*b.";
+    std::string text = "aaaabc";
 
     Lexer lexer(pattern);
     Parser parser(lexer);
