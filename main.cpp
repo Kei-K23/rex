@@ -69,3 +69,46 @@ private:
     std::string pattern; // Pattern string
     size_t index;        // Index for pattern string
 };
+
+class ASTNode
+{
+public:
+    virtual ~ASTNode() = default;
+    virtual bool match(const std::string &text, size_t &index) const = 0;
+};
+
+class LiteralNode : public ASTNode
+{
+
+public:
+    LiteralNode(char value) : value(value) {}
+
+    bool match(const std::string &text, size_t &index) const override
+    {
+        // Check value are equal
+        if (index < text.length() && text[index] == value)
+        {
+            // Increment the index for text
+            index++;
+            return true;
+        }
+        return false;
+    }
+
+private:
+    char value;
+};
+
+class DotNode : public ASTNode
+{
+public:
+    bool match(const std::string &text, size_t &index) const override
+    {
+        if (index < text.length())
+        {
+            index++;
+            return true;
+        }
+        return false;
+    }
+};
