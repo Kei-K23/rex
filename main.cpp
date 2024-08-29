@@ -141,3 +141,25 @@ public:
 private:
     std::unique_ptr<ASTNode> node;
 };
+
+class ConcatNode : public ASTNode
+{
+public:
+    ConcatNode(std::unique_ptr<ASTNode> left,
+               std::unique_ptr<ASTNode> right) : left(std::move(left)), right(std::move(right)) {}
+
+    bool match(const std::string &text, size_t &index) const override
+    {
+        size_t temp = index;
+        if (left->match(text, temp) && right->match(text, temp))
+        {
+            index = temp;
+            return true;
+        }
+        return false;
+    }
+
+private:
+    std::unique_ptr<ASTNode> left;
+    std::unique_ptr<ASTNode> right;
+};
