@@ -163,3 +163,55 @@ private:
     std::unique_ptr<ASTNode> left;
     std::unique_ptr<ASTNode> right;
 };
+
+class Parser
+{
+public:
+    Parser(Lexer &lexer) : lexer(lexer), currentToken(lexer.nextToken()) {}
+
+    std::unique_ptr<ASTNode> parseExpression()
+    {
+        std::unique_ptr<ASTNode> left = parsePrimary();
+        while (currentToken.type == TokenType::LITERAL || currentToken.type == TokenType::DOT)
+        {
+            std::unique_ptr<ASTNode> right = parsePrimary();
+            left = std::make_unique<ConcatNode>(std::move(left), std::move(right));
+        }
+        return left;
+    }
+
+private:
+    Lexer lexer;
+    Token currentToken;
+
+    void advance()
+    {
+        currentToken = lexer.nextToken();
+    }
+
+    std::unique_ptr<ASTNode> parsePrimary()
+    {
+        std::unique_ptr<ASTNode> node;
+
+        switch (currentToken.type)
+        {
+        case TokenType::LITERAL:
+            node = std::make_unique<LiteralNode>(currentToken.value);
+            advance();
+            break;
+        case TokenType::DOT:
+            node = std::make_unique<DotNode>();
+            advance();
+            break;
+        default:
+            break;
+        }
+
+        if (currentToken.type == TokenType::STAR)
+        {
+            node = std::make_unique<StarNode>(std::move(node));
+            advance();
+        }
+        return node;
+    }
+};
