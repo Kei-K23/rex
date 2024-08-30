@@ -13,7 +13,9 @@ enum class TokenType
     LPAREN,
     RPAREN,
     ALTERNATION,
-    END
+    END,
+    LOOKAHEAD,
+    LOOKBEHIND,
 };
 
 /*
@@ -40,6 +42,17 @@ public:
         if (index >= pattern.length())
         {
             return Token(TokenType::END);
+        }
+
+        if (pattern.substr(index, 3) == "(?=")
+        {
+            index += 3;
+            return Token(TokenType::LOOKAHEAD);
+        }
+        else if (pattern.substr(index, 4) == "(?<=")
+        {
+            index += 4;
+            return Token(TokenType::LOOKBEHIND);
         }
 
         char current = pattern[index++];
@@ -223,6 +236,48 @@ private:
     std::unique_ptr<ASTNode> right;
 };
 
+class LookaheadNode : public ASTNode
+{
+public:
+    LookaheadNode(std::unique_ptr<ASTNode> node) : node(std::move(node)) {}
+
+    bool match(const std::string &text, size_t &index) const override
+    {
+        size_t temp = index;
+        return node->match(text, temp);
+    }
+
+private:
+    std::unique_ptr<ASTNode> node;
+};
+
+class LookbehindNode : public ASTNode
+{
+public:
+    LookbehindNode(std::unique_ptr<ASTNode> node) : node(std::move(node)) {}
+
+    bool match(const std::string &text, size_t &index) const override
+    {
+        size_t temp = index;
+        size_t savedIndex = index;
+
+        // Backtrack to see if the lookbehind expression matches
+        while (temp > 0)
+        {
+            --temp;
+            index = temp;
+            if (node->match(text, index) && index == savedIndex)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+private:
+    std::unique_ptr<ASTNode> node;
+};
+
 /*
 Responsible for parsing the tokenized input and building an AST representing the regular expression.
 */
@@ -288,6 +343,24 @@ private:
             }
             node = std::make_unique<GroupNode>(std::move(node));
             break;
+        case TokenType::LOOKAHEAD:
+            advance();
+            node = parseExpression();
+            if (currentToken.type == TokenType::RPAREN)
+            {
+                advance();
+            }
+            node = std::make_unique<LookaheadNode>(std::move(node));
+            break;
+        case TokenType::LOOKBEHIND:
+            advance();
+            node = parseExpression();
+            if (currentToken.type == TokenType::RPAREN)
+            {
+                advance();
+            }
+            node = std::make_unique<LookbehindNode>(std::move(node));
+            break;
         default:
             break;
         }
@@ -320,10 +393,18 @@ private:
     std::unique_ptr<ASTNode> root;
 };
 
-int main()
+int main(int argc, char *argv[])
 {
-    std::string pattern = "a|b*";
-    std::string text = "bbc";
+    // Check if the correct number of arguments is provided
+    if (argc != 5)
+    {
+        std::cerr << "Usage: " << argv[0] << " -p <pattern> -t <text>" << std::endl;
+        return 1;
+    }
+
+    // Extract the pattern and text from command-line arguments
+    std::string pattern = argv[2];
+    std::string text = argv[4];
 
     Lexer lexer(pattern);
     Parser parser(lexer);
