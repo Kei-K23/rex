@@ -12,6 +12,7 @@ enum class TokenType
     STAR,
     LPAREN,
     RPAREN,
+    ALTERNATION,
     END
 };
 
@@ -52,6 +53,8 @@ public:
             return Token(TokenType::LPAREN, '(');
         case ')':
             return Token(TokenType::RPAREN, ')');
+        case '|':
+            return Token(TokenType::ALTERNATION, '|');
         default:
             return Token(TokenType::LITERAL, current);
         }
@@ -194,6 +197,32 @@ private:
     mutable std::string captured;
 };
 
+class AlternationNode : public ASTNode
+{
+public:
+    AlternationNode(std::unique_ptr<ASTNode> left, std::unique_ptr<ASTNode> right)
+        : left(std::move(left)), right(std::move(right)) {}
+
+    bool match(const std::string &text, size_t &index) const override
+    {
+        size_t temp = index;
+        if (left->match(text, temp))
+        {
+            index = temp;
+            return true;
+        }
+        if (right->match(text, index))
+        {
+            return true;
+        }
+        return false;
+    }
+
+private:
+    std::unique_ptr<ASTNode> left;
+    std::unique_ptr<ASTNode> right;
+};
+
 /*
 Responsible for parsing the tokenized input and building an AST representing the regular expression.
 */
@@ -205,11 +234,26 @@ public:
     std::unique_ptr<ASTNode> parseExpression()
     {
         std::unique_ptr<ASTNode> left = parsePrimary();
-        while (currentToken.type == TokenType::LITERAL || currentToken.type == TokenType::DOT)
+
+        while (true)
         {
-            std::unique_ptr<ASTNode> right = parsePrimary();
-            left = std::make_unique<ConcatNode>(std::move(left), std::move(right));
+            if (currentToken.type == TokenType::ALTERNATION)
+            {
+                advance();
+                std::unique_ptr<ASTNode> right = parsePrimary();
+                left = std::make_unique<AlternationNode>(std::move(left), std::move(right));
+            }
+            else if (currentToken.type == TokenType::LITERAL || currentToken.type == TokenType::DOT || currentToken.type == TokenType::LPAREN)
+            {
+                std::unique_ptr<ASTNode> right = parsePrimary();
+                left = std::make_unique<ConcatNode>(std::move(left), std::move(right));
+            }
+            else
+            {
+                break;
+            }
         }
+
         return left;
     }
 
@@ -278,8 +322,8 @@ private:
 
 int main()
 {
-    std::string pattern = "(ab)*";
-    std::string text = "abab";
+    std::string pattern = "a|b*";
+    std::string text = "bbc";
 
     Lexer lexer(pattern);
     Parser parser(lexer);
